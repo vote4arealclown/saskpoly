@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { useSession, signIn, signOut } from "next-auth/react";
-import { useState } from "react";
-import { Menu, X, Shield, ClipboardCheck, PlusCircle, LogIn, UserPlus, Mail } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Menu, X, Shield, ClipboardCheck, PlusCircle, LogIn, UserPlus, Mail, Wallet } from "lucide-react";
 
 export function Navbar() {
   const { data: session } = useSession();
   const user = session?.user as any;
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [balance, setBalance] = useState(0);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authMode, setAuthMode] = useState<"signin" | "signup" | "staff">("signin");
   const [email, setEmail] = useState("");
@@ -72,6 +73,15 @@ export function Navbar() {
     setShowAuthModal(true);
   };
 
+  useEffect(() => {
+    if (session?.user) {
+      fetch("/api/user/balance")
+        .then((r) => r.json())
+        .then((data) => setBalance(data.balance ?? 0))
+        .catch(() => {});
+    }
+  }, [session]);
+
   return (
     <>
       <nav className="border-b border-zinc-800 bg-black">
@@ -110,6 +120,13 @@ export function Navbar() {
             <div className="hidden md:flex items-center gap-4">
               {session ? (
                 <div className="flex items-center gap-3">
+                  <Link
+                    href="/deposit"
+                    className="text-xs text-emerald-400 hover:text-emerald-300 flex items-center gap-1"
+                  >
+                    <Wallet className="w-3 h-3" />
+                    ${balance.toFixed(2)}
+                  </Link>
                   <span className="text-xs text-zinc-400">{user?.name || user?.email}</span>
                   <button
                     onClick={() => signOut()}
@@ -152,6 +169,11 @@ export function Navbar() {
             <Link href="/markets" className="block text-sm text-zinc-300">Markets</Link>
             <Link href="/create" className="block text-sm text-zinc-300">Create Market</Link>
             <Link href="/contact" className="block text-sm text-zinc-300">Contact</Link>
+            {session && (
+              <Link href="/deposit" className="block text-sm text-emerald-400">
+                Deposit (${balance.toFixed(2)})
+              </Link>
+            )}
             {user?.role === "ADMIN" && <Link href="/admin" className="block text-sm text-emerald-400">Admin</Link>}
             {user?.role === "AUDIT" && <Link href="/audit" className="block text-sm text-amber-400">Audit</Link>}
             <div className="pt-2 flex gap-3">

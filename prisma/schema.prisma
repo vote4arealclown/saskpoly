@@ -46,6 +46,8 @@ model User {
   bets          Bet[]
   resolutions   Resolution[]
   stripePayments StripePayment[]
+  deposits       Deposit[]
+  balance        Float     @default(0)
 }
 
 model StripePayment {
@@ -127,6 +129,17 @@ model Contact {
   subject   String
   message   String
   createdAt DateTime @default(now())
+}
+
+model Deposit {
+  id              String   @id @default(cuid())
+  userId          String
+  amount          Float
+  status          String   @default("pending")
+  paymentIntentId String   @unique
+  createdAt       DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
 }
 
 enum Role {

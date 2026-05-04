@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { ratelimit } from "@/lib/redis";
 
-export async function POST() {
+export async function POST(req: Request) {
   try {
-    const session = await getServerSession(authOptions);
-    return NextResponse.json({ ok: true, hasSession: !!session });
+    const ip = req.headers.get("x-forwarded-for") ?? "127.0.0.1";
+    const { success } = await ratelimit.limit(ip);
+    return NextResponse.json({ ok: true, rateLimitSuccess: success });
   } catch (e: any) {
     return NextResponse.json({ ok: false, error: e.message, stack: e.stack }, { status: 500 });
   }

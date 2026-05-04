@@ -1,15 +1,12 @@
 import { NextResponse } from "next/server";
-import { stripe } from "@/lib/stripe";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 
-export async function GET() {
+export async function POST() {
   try {
-    const pi = await stripe.paymentIntents.create({
-      amount: 1000,
-      currency: "cad",
-      automatic_payment_methods: { enabled: true },
-    });
-    return NextResponse.json({ ok: true, piId: pi.id });
+    const session = await getServerSession(authOptions);
+    return NextResponse.json({ ok: true, hasSession: !!session });
   } catch (e: any) {
-    return NextResponse.json({ ok: false, error: e.message, type: e.type }, { status: 500 });
+    return NextResponse.json({ ok: false, error: e.message, stack: e.stack }, { status: 500 });
   }
 }

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useSession, signIn, signOut } from "next-auth/react";
 import { useState } from "react";
-import { Menu, X, Shield, ClipboardCheck, PlusCircle, LogIn, UserPlus } from "lucide-react";
+import { Menu, X, Shield, ClipboardCheck, PlusCircle, LogIn, UserPlus, Mail } from "lucide-react";
 
 export function Navbar() {
   const { data: session } = useSession();
@@ -87,7 +87,11 @@ export function Navbar() {
               </Link>
               <Link href="/create" className="text-sm text-zinc-300 hover:text-white transition flex items-center gap-1">
                 <PlusCircle className="w-4 h-4" />
-                Create Event
+                Create Market
+              </Link>
+              <Link href="/contact" className="text-sm text-zinc-300 hover:text-white transition flex items-center gap-1">
+                <Mail className="w-4 h-4" />
+                Contact
               </Link>
               {user?.role === "ADMIN" && (
                 <Link href="/admin" className="text-sm text-emerald-400 hover:text-emerald-300 transition flex items-center gap-1">
@@ -146,7 +150,8 @@ export function Navbar() {
         {mobileOpen && (
           <div className="md:hidden border-t border-zinc-800 px-4 py-4 space-y-3">
             <Link href="/markets" className="block text-sm text-zinc-300">Markets</Link>
-            <Link href="/create" className="block text-sm text-zinc-300">Create Event</Link>
+            <Link href="/create" className="block text-sm text-zinc-300">Create Market</Link>
+            <Link href="/contact" className="block text-sm text-zinc-300">Contact</Link>
             {user?.role === "ADMIN" && <Link href="/admin" className="block text-sm text-emerald-400">Admin</Link>}
             {user?.role === "AUDIT" && <Link href="/audit" className="block text-sm text-amber-400">Audit</Link>}
             <div className="pt-2 flex gap-3">

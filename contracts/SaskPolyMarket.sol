@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-contract SaskPollyMarket {
+contract SaskPolyMarket {
     address public owner;
     uint256 public marketCount;
     uint256 public platformFeeBps = 250; // 2.5%

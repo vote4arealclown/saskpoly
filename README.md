@@ -1,4 +1,4 @@
-# SaskPolly
+# SaskPoly
 
 Saskatchewan's first crypto prediction market. Bet on darts, local leagues, sports, weather, and politics using MetaMask or Phantom wallets.
 
@@ -48,7 +48,7 @@ Open [http://localhost:3000](http://localhost:3000).
 
 ## Smart Contract
 
-A sample Solidity prediction market contract is included in `contracts/SaskPollyMarket.sol`.
+A sample Solidity prediction market contract is included in `contracts/SaskPolyMarket.sol`.
 
 ```bash
 npx hardhat compile

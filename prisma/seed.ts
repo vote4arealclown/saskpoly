@@ -51,11 +51,11 @@ async function main() {
 
   // Create a system user for seed markets
   const systemUser = await prisma.user.upsert({
-    where: { email: "system@saskpolly.local" },
+    where: { email: "system@saskpoly.local" },
     update: {},
     create: {
-      email: "system@saskpolly.local",
-      name: "SaskPolly System",
+      email: "system@saskpoly.local",
+      name: "SaskPoly System",
       role: "ADMIN",
     },
   });

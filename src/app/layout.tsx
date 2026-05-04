@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "SaskPolly - Saskatchewan Prediction Market",
+  title: "SaskPoly - Saskatchewan Prediction Market",
   description: "Bet on Saskatchewan sports and events",
 };
 
@@ -34,7 +34,7 @@ export default function RootLayout({
           <Navbar />
           <main className="flex-1">{children}</main>
           <footer className="border-t border-zinc-800 py-8 text-center text-sm text-zinc-500">
-            <p>SaskPolly - Saskatchewan&apos;s Prediction Market</p>
+            <p>SaskPoly - Saskatchewan&apos;s Prediction Market</p>
             <p className="mt-1">Built for darts, leagues, and local events</p>
           </footer>
         </Providers>

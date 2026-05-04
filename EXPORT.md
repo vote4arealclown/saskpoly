@@ -1,4 +1,4 @@
-# SaskPolly — Vercel Deployment Export
+# SaskPoly — Vercel Deployment Export
 
 This document contains everything needed to continue this project in a new session and deploy it to **Vercel**.
 
@@ -6,7 +6,7 @@ This document contains everything needed to continue this project in a new sessi
 
 ## Project Overview
 
-SaskPolly is a prediction market app where users can:
+SaskPoly is a prediction market app where users can:
 - Create an account (email + password)
 - Browse and create prediction markets (Yes/No outcomes)
 - Place bets using Stripe card payments

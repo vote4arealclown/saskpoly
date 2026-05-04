@@ -26,7 +26,7 @@ export default function Home() {
       <section className="relative overflow-hidden border-b border-zinc-800">
         <div className="mx-auto max-w-7xl px-4 py-24 sm:px-6 lg:px-8 text-center">
           <h1 className="text-4xl sm:text-6xl font-bold tracking-tight bg-gradient-to-r from-emerald-400 to-cyan-400 bg-clip-text text-transparent">
-            SaskPolly
+            SaskPoly
           </h1>
           <p className="mt-6 text-lg text-zinc-400 max-w-2xl mx-auto">
             Saskatchewan&apos;s prediction market. Bet on darts, local leagues, and events

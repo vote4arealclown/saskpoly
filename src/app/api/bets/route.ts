@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { stripe } from "@/lib/stripe";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { ratelimit, cacheDel } from "@/lib/redis";
@@ -18,44 +17,23 @@ export async function POST(req: Request) {
   }
 
   const body = await req.json();
-  const { marketId, amount, outcome, paymentIntentId } = body;
+  const { marketId, amount, outcome } = body;
 
-  if (!paymentIntentId) {
-    return NextResponse.json(
-      { error: "Payment intent ID required" },
-      { status: 400 }
-    );
+  const betAmount = parseFloat(amount);
+  if (!amount || isNaN(betAmount) || betAmount <= 0) {
+    return NextResponse.json({ error: "Invalid amount" }, { status: 400 });
   }
 
-  // Verify payment with Stripe
-  let paymentIntent;
-  try {
-    paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
-  } catch (err: any) {
-    return NextResponse.json(
-      { error: "Invalid payment intent" },
-      { status: 400 }
-    );
-  }
-
-  if (paymentIntent.status !== "succeeded") {
-    return NextResponse.json(
-      { error: "Payment not completed" },
-      { status: 400 }
-    );
-  }
-
-  // Verify metadata matches
   const userId = (session.user as any).id;
-  if (
-    paymentIntent.metadata.marketId !== marketId ||
-    paymentIntent.metadata.userId !== userId ||
-    paymentIntent.metadata.outcome !== String(outcome)
-  ) {
-    return NextResponse.json(
-      { error: "Payment metadata mismatch" },
-      { status: 400 }
-    );
+
+  // Check user balance
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { balance: true },
+  });
+
+  if (!user || user.balance < betAmount) {
+    return NextResponse.json({ error: "Insufficient balance" }, { status: 403 });
   }
 
   const market = await prisma.market.findUnique({ where: { id: marketId } });
@@ -63,56 +41,59 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Market not open" }, { status: 400 });
   }
 
-  // Check if this payment intent was already used
+  // Check for duplicate bet (same user, market, amount, outcome)
   const existingBet = await prisma.bet.findFirst({
-    where: { marketId, userId, amount: parseFloat(amount), outcome: Boolean(outcome) },
+    where: { marketId, userId, amount: betAmount, outcome: Boolean(outcome) },
   });
-  // Also check stripe payment record
-  const stripePayment = await prisma.stripePayment.findUnique({
-    where: { paymentIntentId },
-  });
-  if (stripePayment && stripePayment.status === "succeeded") {
-    return NextResponse.json({ error: "Payment already used" }, { status: 400 });
+  if (existingBet) {
+    return NextResponse.json({ error: "Identical bet already placed" }, { status: 400 });
   }
 
-  // Simple constant product share calculation
-  const betAmount = parseFloat(amount);
+  // Self-leveling share calculation
   const vig = betAmount * (market.vigPercent / 100);
   const netAmount = betAmount - vig;
 
   let shares: number;
   if (outcome) {
-    shares = market.yesPool === 0 ? netAmount : (netAmount * market.noPool) / market.yesPool;
+    // Buying YES: shares = netAmount * (noPool / yesPool)
+    // If either pool is empty, fallback to 1:1 (netAmount shares)
+    shares = market.yesPool === 0 || market.noPool === 0
+      ? netAmount
+      : (netAmount * market.noPool) / market.yesPool;
   } else {
-    shares = market.noPool === 0 ? netAmount : (netAmount * market.yesPool) / market.noPool;
+    // Buying NO: shares = netAmount * (yesPool / noPool)
+    shares = market.noPool === 0 || market.yesPool === 0
+      ? netAmount
+      : (netAmount * market.yesPool) / market.noPool;
   }
 
-  const bet = await prisma.bet.create({
-    data: {
-      userId,
-      marketId,
-      amount: betAmount,
-      outcome: Boolean(outcome),
-      shares,
-    },
-  });
+  // Ensure shares are never zero (minimum 0.01)
+  shares = Math.max(shares, 0.01);
 
-  await prisma.market.update({
-    where: { id: marketId },
-    data: {
-      yesPool: outcome ? market.yesPool + netAmount : market.yesPool,
-      noPool: !outcome ? market.noPool + netAmount : market.noPool,
-      totalVolume: market.totalVolume + betAmount,
-    },
-  });
-
-  // Mark stripe payment as succeeded
-  if (stripePayment) {
-    await prisma.stripePayment.update({
-      where: { paymentIntentId },
-      data: { status: "succeeded" },
-    });
-  }
+  // Execute bet in transaction: deduct balance, create bet, update market
+  const [bet] = await prisma.$transaction([
+    prisma.bet.create({
+      data: {
+        userId,
+        marketId,
+        amount: betAmount,
+        outcome: Boolean(outcome),
+        shares,
+      },
+    }),
+    prisma.user.update({
+      where: { id: userId },
+      data: { balance: { decrement: betAmount } },
+    }),
+    prisma.market.update({
+      where: { id: marketId },
+      data: {
+        yesPool: outcome ? market.yesPool + netAmount : market.yesPool,
+        noPool: !outcome ? market.noPool + netAmount : market.noPool,
+        totalVolume: market.totalVolume + betAmount,
+      },
+    }),
+  ]);
 
   await cacheDel("markets:*");
   return NextResponse.json(bet);

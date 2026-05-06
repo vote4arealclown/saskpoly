@@ -1,8 +1,11 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import Script from "next/script";
 import "./globals.css";
 import { Providers } from "@/components/providers";
 import { Navbar } from "@/components/navbar";
+import { Analytics } from "@vercel/analytics/next";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -29,10 +32,26 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased dark`}
     >
+      <head>
+        <Script
+          src="https://www.googletagmanager.com/gtag/js?id=G-3HY7KY3V7N"
+          strategy="afterInteractive"
+        />
+        <Script id="google-analytics" strategy="afterInteractive">
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', 'G-3HY7KY3V7N');
+          `}
+        </Script>
+      </head>
       <body className="min-h-full flex flex-col bg-black text-white">
         <Providers>
           <Navbar />
           <main className="flex-1">{children}</main>
+          <Analytics />
+          <SpeedInsights />
           <footer className="border-t border-zinc-800 py-10">
             <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
               <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-8">
@@ -65,8 +84,16 @@ export default function RootLayout({
                   </ul>
                 </div>
               </div>
-              <div className="border-t border-zinc-800 pt-6 text-center text-sm text-zinc-500">
-                <p>&copy; {new Date().getFullYear()} SaskPoly. All rights reserved.</p>
+              <div className="border-t border-zinc-800 pt-6">
+                <p className="text-xs text-zinc-600 text-center leading-relaxed max-w-3xl mx-auto mb-4">
+                  Must be 18 or older to participate. Predictions involve risk of loss. 
+                  Only participate with funds you can afford to lose. Not investment advice. 
+                  Currently open to Saskatchewan and Alberta residents only. 
+                  Participant funds held in segregated accounts. 
+                </p>
+                <p className="text-center text-sm text-zinc-500">
+                  &copy; {new Date().getFullYear()} SaskPoly. All rights reserved.
+                </p>
               </div>
             </div>
           </footer>

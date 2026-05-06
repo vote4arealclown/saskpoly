@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { PlusCircle, Wallet, AlertCircle, Shield } from "lucide-react";
 import Link from "next/link";
+import { trackEvent } from "@/lib/analytics";
 
 const CREATION_FEE = 20;
 
@@ -52,6 +53,7 @@ export default function CreatePage() {
     setLoading(false);
 
     if (res.ok) {
+      trackEvent("market_created", { category });
       router.push(`/markets/${data.id}`);
     } else {
       setError(data.error || "Failed to create market");

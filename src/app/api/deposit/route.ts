@@ -1,11 +1,9 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { stripe } from "@/lib/stripe";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { ratelimit } from "@/lib/redis";
-
-const MAX_DEPOSIT = 50;
+import { verifyDepositOnChain } from "@/lib/verify-deposit";
 
 export async function POST(req: Request) {
   const ip = req.headers.get("x-forwarded-for") ?? "127.0.0.1";
@@ -20,41 +18,67 @@ export async function POST(req: Request) {
   }
 
   const body = await req.json();
-  const { amount } = body;
-  const depositAmount = parseFloat(amount);
+  const { txHash, amount, chain, fromAddress } = body;
 
+  if (!txHash || typeof txHash !== "string" || txHash.length < 10) {
+    return NextResponse.json({ error: "Valid transaction hash required" }, { status: 400 });
+  }
+
+  const depositAmount = parseFloat(amount);
   if (!amount || isNaN(depositAmount) || depositAmount <= 0) {
     return NextResponse.json({ error: "Invalid amount" }, { status: 400 });
   }
 
-  if (depositAmount > MAX_DEPOSIT) {
-    return NextResponse.json(
-      { error: `Maximum deposit is $${MAX_DEPOSIT}` },
-      { status: 400 }
-    );
+  if (!chain || !["polygon", "ethereum"].includes(chain.toLowerCase())) {
+    return NextResponse.json({ error: "Chain must be polygon or ethereum" }, { status: 400 });
+  }
+
+  if (!fromAddress || typeof fromAddress !== "string" || !fromAddress.startsWith("0x")) {
+    return NextResponse.json({ error: "Valid from address required" }, { status: 400 });
   }
 
   const userId = (session.user as any).id;
 
-  const paymentIntent = await stripe.paymentIntents.create({
-    amount: Math.round(depositAmount * 100),
-    currency: "cad",
-    automatic_payment_methods: { enabled: true },
-    metadata: {
-      type: "deposit",
-      userId,
-      amount: String(depositAmount),
-    },
+  // Check for duplicate tx hash
+  const existing = await prisma.deposit.findFirst({
+    where: { paymentIntentId: txHash },
   });
+  if (existing) {
+    return NextResponse.json({ error: "Transaction already submitted" }, { status: 409 });
+  }
 
-  await prisma.deposit.create({
-    data: {
-      paymentIntentId: paymentIntent.id,
-      amount: depositAmount,
-      userId,
-      status: "pending",
-    },
+  // Verify on-chain
+  const verification = await verifyDepositOnChain(txHash, chain, depositAmount, fromAddress);
+
+  if (!verification.valid) {
+    return NextResponse.json(
+      { error: verification.error || "Transaction verification failed" },
+      { status: 400 }
+    );
+  }
+
+  // Auto-credit the user's balance
+  const actualAmount = verification.actualAmount ?? depositAmount;
+
+  await prisma.$transaction([
+    prisma.deposit.create({
+      data: {
+        paymentIntentId: txHash,
+        amount: actualAmount,
+        userId,
+        status: "completed",
+      },
+    }),
+    prisma.user.update({
+      where: { id: userId },
+      data: { balance: { increment: actualAmount } },
+    }),
+  ]);
+
+  return NextResponse.json({
+    success: true,
+    message: `Deposit verified and $${actualAmount.toFixed(2)} credited to your balance.`,
+    txHash,
+    amount: actualAmount,
   });
-
-  return NextResponse.json({ clientSecret: paymentIntent.client_secret });
 }

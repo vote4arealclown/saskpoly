@@ -46,7 +46,8 @@ export default function MarketsPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filtered.map((market) => {
-          const yesOdds = market.yesPool + market.noPool > 0 ? (market.yesPool / (market.yesPool + market.noPool)) * 100 : 50;
+          const totalPool = market.yesPool + market.noPool;
+          const yesProb = totalPool > 0 ? (market.yesPool / totalPool) * 100 : 50;
           return (
             <Link
               key={market.id}
@@ -66,13 +67,13 @@ export default function MarketsPage() {
               <p className="mt-2 text-sm text-zinc-400 line-clamp-2">{market.description}</p>
               <div className="mt-6">
                 <div className="flex justify-between text-xs text-zinc-500 mb-1">
-                  <span>Yes {yesOdds.toFixed(1)}%</span>
-                  <span>No {(100 - yesOdds).toFixed(1)}%</span>
+                  <span>Yes {yesProb.toFixed(1)}%</span>
+                  <span>No {(100 - yesProb).toFixed(1)}%</span>
                 </div>
                 <div className="h-2 rounded-full bg-zinc-800 overflow-hidden">
                   <div
                     className="h-full bg-emerald-500 transition-all"
-                    style={{ width: `${yesOdds}%` }}
+                    style={{ width: `${yesProb}%` }}
                   />
                 </div>
               </div>

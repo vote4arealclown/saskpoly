@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Mail, Send, CheckCircle } from "lucide-react";
+import { trackEvent } from "@/lib/analytics";
 
 export default function ContactPage() {
   const [form, setForm] = useState({ name: "", email: "", subject: "", message: "" });
@@ -24,6 +25,7 @@ export default function ContactPage() {
       if (res.ok) {
         setStatus("success");
         setForm({ name: "", email: "", subject: "", message: "" });
+        trackEvent("contact_submission", { subject: form.subject });
       } else {
         setStatus("error");
         setErrorMsg(data.error || "Failed to send message");

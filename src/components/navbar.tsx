@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useSession, signIn, signOut } from "next-auth/react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Menu,
   X,
@@ -10,7 +10,6 @@ import {
   ClipboardCheck,
   PlusCircle,
   LogIn,
-  UserPlus,
   Mail,
   Wallet,
   User,
@@ -18,10 +17,16 @@ import {
   ChevronLeft,
   CheckCircle,
 } from "lucide-react";
+import { ConnectButton } from "@rainbow-me/rainbowkit";
+import { trackEvent } from "@/lib/analytics";
+
+import { useAccount } from "wagmi";
 
 export function Navbar() {
   const { data: session } = useSession();
   const user = session?.user as any;
+  const { address, isConnected } = useAccount();
+  const walletTracked = useRef(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [balance, setBalance] = useState(0);
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -56,6 +61,13 @@ export function Navbar() {
     }
   }, [session]);
 
+  useEffect(() => {
+    if (isConnected && address && !walletTracked.current) {
+      walletTracked.current = true;
+      trackEvent("wallet_connected");
+    }
+  }, [isConnected, address]);
+
   const resetForm = () => {
     setForm({
       email: "",
@@ -82,12 +94,6 @@ export function Navbar() {
     setShowAuthModal(true);
   };
 
-  const openSignUp = () => {
-    setAuthMode("signup");
-    resetForm();
-    setShowAuthModal(true);
-  };
-
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setAuthError("");
@@ -107,6 +113,7 @@ export function Navbar() {
       }
       setSignupSuccess(true);
       setAuthLoading(false);
+      trackEvent("user_signup");
       return;
     }
 
@@ -123,6 +130,7 @@ export function Navbar() {
     } else {
       setShowAuthModal(false);
       resetForm();
+      trackEvent(authMode === "staff" ? "staff_signin" : "user_signin");
     }
   };
 
@@ -169,6 +177,7 @@ export function Navbar() {
             </div>
 
             <div className="hidden md:flex items-center gap-4">
+              <ConnectButton chainStatus="none" showBalance={false} accountStatus="address" />
               {session ? (
                 <div className="flex items-center gap-3">
                   <Link
@@ -198,13 +207,6 @@ export function Navbar() {
                     <LogIn className="w-4 h-4" />
                     Sign In
                   </button>
-                  <button
-                    onClick={openSignUp}
-                    className="text-sm text-black bg-emerald-500 hover:bg-emerald-400 px-3 py-1.5 rounded-lg font-medium transition flex items-center gap-1"
-                  >
-                    <UserPlus className="w-4 h-4" />
-                    Sign Up
-                  </button>
                 </>
               )}
             </div>
@@ -233,11 +235,13 @@ export function Navbar() {
             )}
             {user?.role === "ADMIN" && <Link href="/admin" className="block text-sm text-emerald-400">Admin</Link>}
             {user?.role === "AUDIT" && <Link href="/audit" className="block text-sm text-amber-400">Audit</Link>}
-            <div className="pt-2 flex gap-3">
+            <div className="pt-2 flex flex-col gap-3">
+              <div className="flex justify-start">
+                <ConnectButton chainStatus="none" showBalance={false} accountStatus="address" />
+              </div>
               {!session && (
                 <>
-                  <button onClick={openSignIn} className="text-sm text-zinc-300">Sign In</button>
-                  <button onClick={openSignUp} className="text-sm text-emerald-400">Sign Up</button>
+                  <button onClick={openSignIn} className="text-sm text-zinc-300 text-left">Sign In</button>
                 </>
               )}
             </div>

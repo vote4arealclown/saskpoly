@@ -47,6 +47,7 @@ model User {
   resolutions      Resolution[]
   stripePayments   StripePayment[]
   deposits         Deposit[]
+  comments         Comment[]
   balance          Float     @default(0)
 
   // Tax compliance fields
@@ -106,6 +107,7 @@ model Market {
   bets        Bet[]
   resolutions Resolution[]
   stripePayments StripePayment[]
+  comments    Comment[]
 }
 
 model Bet {
@@ -116,6 +118,7 @@ model Bet {
   outcome   Boolean   // true = YES, false = NO
   shares    Float
   status    BetStatus @default(ACTIVE)
+  payout    Float?
   createdAt DateTime  @default(now())
   claimedAt DateTime?
 
@@ -144,6 +147,15 @@ model Contact {
   createdAt DateTime @default(now())
 }
 
+model BetaSignup {
+  id        String   @id @default(cuid())
+  name      String
+  email     String
+  province  String
+  message   String?
+  createdAt DateTime @default(now())
+}
+
 model Deposit {
   id              String   @id @default(cuid())
   userId          String
@@ -153,6 +165,18 @@ model Deposit {
   createdAt       DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id])
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  userId    String
+  marketId  String
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  market Market @relation(fields: [marketId], references: [id], onDelete: Cascade)
 }
 
 enum Role {

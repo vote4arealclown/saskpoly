@@ -23,6 +23,7 @@ export async function GET() {
 }
 
 const CREATION_FEE = 20;
+const SEED_PER_SIDE = 10;
 
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
@@ -66,6 +67,9 @@ export async function POST(req: Request) {
       closesAt: closesAt ? new Date(closesAt) : null,
       vigPercent: vigPercent ?? 2.5,
       creatorId: userId,
+      // Seed liquidity: $10 YES / $10 NO from the $20 creation fee
+      yesPool: SEED_PER_SIDE,
+      noPool: SEED_PER_SIDE,
     },
   });
 

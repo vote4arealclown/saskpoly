@@ -348,9 +348,28 @@ export default function MarketDetailPage() {
                         <span className="text-sm font-medium text-zinc-300">
                           {comment.user?.name || comment.user?.email || "Anonymous"}
                         </span>
-                        <span className="text-xs text-zinc-500">
-                          {new Date(comment.createdAt).toLocaleString()}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-zinc-500">
+                            {new Date(comment.createdAt).toLocaleString()}
+                          </span>
+                          {user?.role === "ADMIN" && (
+                            <button
+                              onClick={async () => {
+                                if (!confirm("Delete this comment?")) return;
+                                const res = await fetch(`/api/markets/${id}/comments/${comment.id}`, { method: "DELETE" });
+                                if (res.ok) {
+                                  setComments((prev) => prev.filter((c) => c.id !== comment.id));
+                                } else {
+                                  alert("Failed to delete comment");
+                                }
+                              }}
+                              className="p-1 rounded hover:bg-red-950 text-zinc-500 hover:text-red-400 transition"
+                              title="Delete comment"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
                       </div>
                       <p className="text-sm text-zinc-300 whitespace-pre-wrap">{comment.content}</p>
                     </div>

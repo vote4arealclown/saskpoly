@@ -3,9 +3,9 @@
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { Shield, Users, DollarSign, Activity, Mail, MessageSquare, TrendingUp, Trash2 } from "lucide-react";
+import { Shield, Users, DollarSign, Activity, Mail, MessageSquare, TrendingUp, Trash2, X } from "lucide-react";
 
-type Tab = "markets" | "contacts" | "beta";
+type Tab = "markets" | "contacts" | "comments" | "beta";
 
 export default function AdminPage() {
   const { data: session, status } = useSession();
@@ -15,6 +15,7 @@ export default function AdminPage() {
   const [users, setUsers] = useState<any[]>([]);
   const [contacts, setContacts] = useState<any[]>([]);
   const [betaSignups, setBetaSignups] = useState<any[]>([]);
+  const [allComments, setAllComments] = useState<any[]>([]);
   const [tab, setTab] = useState<Tab>("markets");
 
   useEffect(() => {
@@ -39,6 +40,10 @@ export default function AdminPage() {
     fetch("/api/admin/beta")
       .then((r) => r.json())
       .then((data) => setBetaSignups(Array.isArray(data) ? data : []));
+
+    fetch("/api/admin/comments")
+      .then((r) => r.json())
+      .then((data) => setAllComments(Array.isArray(data) ? data : []));
   }, [status, user, router]);
 
   if (status === "loading") {
@@ -107,6 +112,7 @@ export default function AdminPage() {
       <div className="flex gap-2 mb-6">
         {tabBtn("markets", "Markets", <Activity className="w-4 h-4" />)}
         {tabBtn("contacts", `Contact Forms (${contacts.length})`, <Mail className="w-4 h-4" />)}
+        {tabBtn("comments", `Comments (${allComments.length})`, <MessageSquare className="w-4 h-4" />)}
         {tabBtn("beta", `Beta Signups (${betaSignups.length})`, <TrendingUp className="w-4 h-4" />)}
       </div>
 
@@ -140,6 +146,7 @@ export default function AdminPage() {
                 <th className="px-4 py-3">Volume</th>
                 <th className="px-4 py-3">Bets</th>
                 <th className="px-4 py-3">Vig</th>
+                <th className="px-4 py-3"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-800">
@@ -162,6 +169,23 @@ export default function AdminPage() {
                   <td className="px-4 py-3 text-zinc-300">${m.totalVolume.toLocaleString()}</td>
                   <td className="px-4 py-3 text-zinc-300">{m.bets?.length || 0}</td>
                   <td className="px-4 py-3 text-zinc-300">{m.vigPercent}%</td>
+                  <td className="px-4 py-3">
+                    <button
+                      onClick={async () => {
+                        if (!confirm(`Delete "${m.title}"? This cannot be undone.`)) return;
+                        const res = await fetch(`/api/markets/${m.id}`, { method: "DELETE" });
+                        if (res.ok) {
+                          setMarkets((prev) => prev.filter((x) => x.id !== m.id));
+                        } else {
+                          alert("Failed to delete market");
+                        }
+                      }}
+                      className="p-1.5 rounded-lg hover:bg-red-950 text-zinc-500 hover:text-red-400 transition"
+                      title="Delete market"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -191,6 +215,48 @@ export default function AdminPage() {
                   </span>
                 </div>
                 <p className="text-sm text-zinc-300 whitespace-pre-wrap">{c.message}</p>
+              </div>
+            ))
+          )}
+        </div>
+      )}
+
+      {tab === "comments" && (
+        <div className="space-y-4">
+          {allComments.length === 0 ? (
+            <p className="text-zinc-500 text-sm">No comments yet.</p>
+          ) : (
+            allComments.map((c) => (
+              <div key={c.id} className="rounded-xl border border-zinc-800 bg-zinc-950 p-5">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-3">
+                    <MessageSquare className="w-4 h-4 text-emerald-400" />
+                    <span className="text-white font-medium">{c.user?.name || c.user?.email || "Anonymous"}</span>
+                    <span className="text-xs text-zinc-500">on</span>
+                    <a href={`/markets/${c.market?.id}`} className="text-sm text-emerald-400 hover:underline">
+                      {c.market?.title || "Unknown market"}
+                    </a>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-zinc-500">{new Date(c.createdAt).toLocaleString()}</span>
+                    <button
+                      onClick={async () => {
+                        if (!confirm("Delete this comment?")) return;
+                        const res = await fetch(`/api/markets/${c.marketId}/comments/${c.id}`, { method: "DELETE" });
+                        if (res.ok) {
+                          setAllComments((prev) => prev.filter((x) => x.id !== c.id));
+                        } else {
+                          alert("Failed to delete comment");
+                        }
+                      }}
+                      className="p-1.5 rounded-lg hover:bg-red-950 text-zinc-500 hover:text-red-400 transition"
+                      title="Delete comment"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+                <p className="text-sm text-zinc-300 whitespace-pre-wrap">{c.content}</p>
               </div>
             ))
           )}

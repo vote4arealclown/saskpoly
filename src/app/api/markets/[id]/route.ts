@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { cacheGet, cacheSet } from "@/lib/redis";
+import { cacheGet, cacheSet, cacheDel } from "@/lib/redis";
 import { findMarketByIdOrSlug, clearMarketCache } from "@/lib/market-lookup";
 
 const CACHE_TTL = 30;
@@ -21,6 +21,13 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   });
 
   if (!market) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  // Auto-close if past closesAt
+  if (market.status === "OPEN" && market.closesAt && new Date(market.closesAt) < new Date()) {
+    await prisma.market.update({ where: { id: market.id }, data: { status: "CLOSED" } });
+    market.status = "CLOSED";
+    await cacheDel("markets:*");
+  }
 
   await cacheSet(cacheKey, market, CACHE_TTL);
   return NextResponse.json(market);

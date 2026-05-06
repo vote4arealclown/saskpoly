@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { ratelimit, cacheDel } from "@/lib/redis";
+import { findMarketByIdOrSlug } from "@/lib/market-lookup";
 
 export async function POST(req: Request) {
   const ip = req.headers.get("x-forwarded-for") ?? "127.0.0.1";
@@ -36,14 +37,14 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Insufficient balance" }, { status: 403 });
   }
 
-  const market = await prisma.market.findUnique({ where: { id: marketId } });
+  const market = await findMarketByIdOrSlug(marketId);
   if (!market || market.status !== "OPEN") {
     return NextResponse.json({ error: "Market not open" }, { status: 400 });
   }
 
   // Check for duplicate bet (same user, market, amount, outcome)
   const existingBet = await prisma.bet.findFirst({
-    where: { marketId, userId, amount: betAmount, outcome: Boolean(outcome) },
+    where: { marketId: market.id, userId, amount: betAmount, outcome: Boolean(outcome) },
   });
   if (existingBet) {
     return NextResponse.json({ error: "Identical bet already placed" }, { status: 400 });
@@ -75,7 +76,7 @@ export async function POST(req: Request) {
     prisma.bet.create({
       data: {
         userId,
-        marketId,
+        marketId: market.id,
         amount: betAmount,
         outcome: Boolean(outcome),
         shares,
@@ -86,7 +87,7 @@ export async function POST(req: Request) {
       data: { balance: { decrement: betAmount } },
     }),
     prisma.market.update({
-      where: { id: marketId },
+      where: { id: market.id },
       data: {
         yesPool: outcome ? market.yesPool + netAmount : market.yesPool,
         noPool: !outcome ? market.noPool + netAmount : market.noPool,

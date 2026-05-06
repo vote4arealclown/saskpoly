@@ -54,7 +54,7 @@ export default function CreatePage() {
 
     if (res.ok) {
       trackEvent("market_created", { category });
-      router.push(`/markets/${data.id}`);
+      router.push(`/markets/${data.slug || data.id}`);
     } else {
       setError(data.error || "Failed to create market");
     }

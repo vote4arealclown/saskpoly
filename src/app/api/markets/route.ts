@@ -4,11 +4,14 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { cacheGet, cacheSet, cacheDel } from "@/lib/redis";
 import { generateUniqueSlug } from "@/lib/slug";
+import { closeExpiredMarkets } from "@/lib/market-lookup";
 
 const CACHE_KEY = "markets:all";
 const CACHE_TTL = 30; // 30 seconds
 
 export async function GET() {
+  await closeExpiredMarkets();
+
   const cached = await cacheGet<unknown>(CACHE_KEY);
   if (cached) {
     return NextResponse.json(cached);

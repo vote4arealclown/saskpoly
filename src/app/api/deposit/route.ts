@@ -39,6 +39,21 @@ export async function POST(req: Request) {
 
   const userId = (session.user as any).id;
 
+  // Verify the transaction sender matches the logged-in user's wallet
+  const dbUser = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { walletAddress: true },
+  });
+
+  if (dbUser?.walletAddress) {
+    if (dbUser.walletAddress.toLowerCase() !== fromAddress.toLowerCase()) {
+      return NextResponse.json(
+        { error: "Transaction sender does not match your connected wallet" },
+        { status: 403 }
+      );
+    }
+  }
+
   // Check for duplicate tx hash
   const existing = await prisma.deposit.findFirst({
     where: { paymentIntentId: txHash },

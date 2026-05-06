@@ -27,3 +27,20 @@ export async function clearMarketCache(identifier: string, marketId: string) {
   await cacheDel(`market:meta:${marketId}`);
   await cacheDel("markets:*");
 }
+
+export async function closeExpiredMarkets() {
+  const now = new Date();
+  const result = await prisma.market.updateMany({
+    where: {
+      status: "OPEN",
+      closesAt: { lt: now },
+    },
+    data: {
+      status: "CLOSED",
+    },
+  });
+  if (result.count > 0) {
+    await cacheDel("markets:*");
+  }
+  return result.count;
+}

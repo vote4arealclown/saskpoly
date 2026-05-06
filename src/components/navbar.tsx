@@ -13,6 +13,7 @@ import {
   Wallet,
   User,
   LogIn,
+  TrendingUp,
 } from "lucide-react";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { trackEvent } from "@/lib/analytics";
@@ -120,6 +121,12 @@ export function Navbar() {
                 <Mail className="w-4 h-4" />
                 Contact
               </Link>
+              {session && (
+                <Link href="/bets" className="text-sm text-zinc-300 hover:text-white transition flex items-center gap-1">
+                  <TrendingUp className="w-4 h-4" />
+                  My Bets
+                </Link>
+              )}
               {user?.role === "ADMIN" && (
                 <Link href="/admin" className="text-sm text-emerald-400 hover:text-emerald-300 transition flex items-center gap-1">
                   <Shield className="w-4 h-4" />
@@ -183,6 +190,7 @@ export function Navbar() {
             <Link href="/contact" className="block text-sm text-zinc-300">Contact</Link>
             {session && (
               <>
+                <Link href="/bets" className="block text-sm text-zinc-300">My Bets</Link>
                 <Link href="/deposit" className="block text-sm text-emerald-400">
                   Deposit (${balance.toFixed(2)})
                 </Link>

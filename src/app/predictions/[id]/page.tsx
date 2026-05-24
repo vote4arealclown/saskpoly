@@ -6,11 +6,13 @@ import { useParams } from "next/navigation";
 import {
   Trophy,
   Calendar,
+  Clock,
   MessageSquare,
   Loader2,
   Send,
   CheckCircle2,
   User,
+  Lock,
 } from "lucide-react";
 
 export default function PredictionDetailPage() {
@@ -58,20 +60,23 @@ export default function PredictionDetailPage() {
     setLoading(false);
   };
 
+  const hasStarted = prediction ? new Date() >= new Date(prediction.event_date) : false;
+
   const handlePick = async () => {
-    if (!user || !userPick) return;
+    if (!user || !userPick || hasStarted) return;
     setSubmitting(true);
-    const { error } = await supabase.from("picks").insert({
-      user_id: user.id,
-      prediction_id: id,
-      selected_option: userPick,
+    const res = await fetch("/api/picks", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ predictionId: id, selectedOption: userPick }),
     });
+    const json = await res.json();
     setSubmitting(false);
-    if (!error) {
+    if (json.success) {
       setUserPick("");
       loadData();
     } else {
-      alert(error.message);
+      alert(json.error || "Failed to place pick");
     }
   };
 
@@ -134,10 +139,14 @@ export default function PredictionDetailPage() {
         </div>
         <h1 className="text-2xl font-bold">{prediction.title}</h1>
         <p className="text-zinc-400 mt-2">{prediction.description}</p>
-        <div className="flex items-center gap-4 mt-4 text-sm text-zinc-500">
+        <div className="flex flex-wrap items-center gap-4 mt-4 text-sm text-zinc-500">
           <span className="flex items-center gap-1">
             <Calendar className="w-4 h-4" />
-            {new Date(prediction.event_date).toLocaleString()}
+            {new Date(prediction.event_date).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}
+          </span>
+          <span className="flex items-center gap-1">
+            <Clock className="w-4 h-4" />
+            {new Date(prediction.event_date).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}
           </span>
           {prediction.resolved_option && (
             <span className="flex items-center gap-1 text-emerald-400">
@@ -166,6 +175,14 @@ export default function PredictionDetailPage() {
                 </p>
               )}
             </div>
+          ) : hasStarted ? (
+            <div className="rounded-xl bg-amber-500/10 border border-amber-500/20 p-4 flex items-center gap-2">
+              <Lock className="w-5 h-5 text-amber-400" />
+              <p className="text-amber-400 font-medium">
+                Picks are closed — this game started at{" "}
+                {new Date(prediction.event_date).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}
+              </p>
+            </div>
           ) : user ? (
             <div className="space-y-4">
               <div className="flex flex-wrap gap-2">
@@ -173,10 +190,11 @@ export default function PredictionDetailPage() {
                   <button
                     key={opt}
                     onClick={() => setUserPick(opt)}
+                    disabled={hasStarted}
                     className={`px-4 py-2 rounded-xl text-sm font-medium transition ${
                       userPick === opt
                         ? "bg-emerald-500 text-black"
-                        : "bg-zinc-900 border border-zinc-700 text-zinc-300 hover:border-zinc-500"
+                        : "bg-zinc-900 border border-zinc-700 text-zinc-300 hover:border-zinc-500 disabled:opacity-50 disabled:cursor-not-allowed"
                     }`}
                   >
                     {opt}
@@ -185,7 +203,7 @@ export default function PredictionDetailPage() {
               </div>
               <button
                 onClick={handlePick}
-                disabled={!userPick || submitting}
+                disabled={!userPick || submitting || hasStarted}
                 className="rounded-xl bg-emerald-500 px-6 py-2.5 text-sm font-semibold text-black hover:bg-emerald-400 disabled:opacity-50 transition"
               >
                 {submitting ? "Submitting..." : "Lock In Pick"}

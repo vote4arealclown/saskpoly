@@ -1,8 +1,12 @@
 {
   "crons": [
     {
-      "path": "/api/jays/run",
+      "path": "/api/jays/daily",
       "schedule": "0 12 * * *"
+    },
+    {
+      "path": "/api/admin/auto-resolve",
+      "schedule": "0 13 * * *"
     }
   ]
 }

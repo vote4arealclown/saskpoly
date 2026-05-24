@@ -206,3 +206,45 @@ CREATE INDEX idx_picks_user_id ON public.picks(user_id);
 CREATE INDEX idx_picks_prediction_id ON public.picks(prediction_id);
 CREATE INDEX idx_comments_prediction_id ON public.comments(prediction_id);
 CREATE INDEX idx_profiles_points ON public.profiles(total_points DESC);
+
+-- Login streak columns (run this in Supabase SQL Editor if not already applied)
+-- ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS login_streak INTEGER NOT NULL DEFAULT 0;
+-- ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS last_login_date DATE;
+
+-- Blog / Posts Schema
+CREATE TABLE public.posts (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  title TEXT NOT NULL,
+  slug TEXT NOT NULL UNIQUE,
+  content TEXT NOT NULL,
+  excerpt TEXT,
+  published BOOLEAN NOT NULL DEFAULT false,
+  author_id UUID NOT NULL REFERENCES auth.users(id),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE public.posts ENABLE ROW LEVEL SECURITY;
+
+-- Anyone logged in can view published posts
+CREATE POLICY "Posts are viewable by logged-in users"
+  ON public.posts FOR SELECT USING (auth.role() = 'authenticated' AND published = true);
+
+-- Authors can view their own drafts too
+CREATE POLICY "Authors can view their own posts"
+  ON public.posts FOR SELECT USING (auth.uid() = author_id);
+
+-- Only authors can insert (enforced in API by email check)
+CREATE POLICY "Authors can insert posts"
+  ON public.posts FOR INSERT WITH CHECK (auth.uid() = author_id);
+
+-- Authors can update their own posts
+CREATE POLICY "Authors can update their own posts"
+  ON public.posts FOR UPDATE USING (auth.uid() = author_id);
+
+-- Authors can delete their own posts
+CREATE POLICY "Authors can delete their own posts"
+  ON public.posts FOR DELETE USING (auth.uid() = author_id);
+
+CREATE INDEX idx_posts_slug ON public.posts(slug);
+CREATE INDEX idx_posts_published ON public.posts(published, created_at DESC);

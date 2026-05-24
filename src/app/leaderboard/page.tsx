@@ -15,11 +15,22 @@ export default function LeaderboardPage() {
 
   const loadLeaderboard = async () => {
     setLoading(true);
-    const { data } = await supabase
-      .from("profiles")
-      .select("*")
-      .order("total_points", { ascending: false });
-    setProfiles(data || []);
+    const [{ data: profilesData }, { data: picksData }] = await Promise.all([
+      supabase.from("profiles").select("*"),
+      supabase.from("picks").select("user_id, points_earned, is_correct"),
+    ]);
+
+    const picks = picksData || [];
+    const merged = (profilesData || []).map((p: any) => {
+      const userPicks = picks.filter((pk: any) => pk.user_id === p.id);
+      const total_picks = userPicks.length;
+      const correct_picks = userPicks.filter((pk: any) => pk.is_correct === true).length;
+      const total_points = userPicks.reduce((sum: number, pk: any) => sum + (pk.points_earned || 0), 0);
+      return { ...p, total_picks, correct_picks, total_points };
+    });
+
+    merged.sort((a: any, b: any) => b.total_points - a.total_points);
+    setProfiles(merged);
     setLoading(false);
   };
 

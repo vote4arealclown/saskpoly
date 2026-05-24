@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { getSupabaseAdminUntyped } from "@/lib/supabase-admin";
-import { computeMoneyline } from "@/lib/jays-model";
+import { computeHrProps } from "@/lib/hr-props-model";
 
 export async function POST(req: NextRequest) {
   try {
@@ -23,33 +23,33 @@ export async function POST(req: NextRequest) {
     }
 
     const { teamId } = await req.json().catch(() => ({}));
-    const report = await computeMoneyline(teamId || 141);
+    const report = await computeHrProps(teamId || 141);
 
     if ((report as any).error) {
       return NextResponse.json({ error: (report as any).error }, { status: 400 });
     }
 
     const today = new Date().toISOString().split("T")[0];
-    const game = (report as any).game;
 
     const { error: dbError } = await getSupabaseAdminUntyped()
       .from("jays_reports")
       .upsert({
         report_date: today,
-        report_type: "moneyline",
-        game_date: game?.date,
-        opponent: game?.opponent,
-        venue: game?.venue,
-        focus_prob: report.focus_prob,
-        opp_prob: report.opp_prob,
-        recommendation: report.recommendation,
-        confidence: report.confidence,
-        reliability: report.reliability,
-        details: { ...report.details, game_pk: (report as any).game?.game_pk },
-        weather: report.weather,
-        pitchers: report.pitchers,
-        bullpens: report.bullpens,
-        records: report.records,
+        report_type: "hr_props",
+        game_date: (report as any).game?.date,
+        opponent: (report as any).game?.opponent,
+        venue: (report as any).game?.venue,
+        focus_prob: (report as any).top_prospects?.[0]?.probability || 0,
+        opp_prob: 0,
+        recommendation: (report as any).recommendation,
+        confidence: 0.5,
+        reliability: 0.4,
+        details: {
+          top_prospects: (report as any).top_prospects,
+          park_factor: (report as any).park_factor,
+          weather: (report as any).weather,
+          game_pk: (report as any).game?.game_pk,
+        },
         generated_at: new Date().toISOString(),
       }, { onConflict: "report_date,report_type" });
 
@@ -59,6 +59,6 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ success: true, report });
   } catch (err: any) {
-    return NextResponse.json({ error: err.message || "Failed to generate report" }, { status: 500 });
+    return NextResponse.json({ error: err.message || "Failed to generate HR props report" }, { status: 500 });
   }
 }

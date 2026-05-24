@@ -70,6 +70,15 @@ export async function POST(req: NextRequest) {
     // Recalculate leaderboard
     await getSupabaseAdmin().rpc("calculate_leaderboard");
 
+    // Create notification
+    await getSupabaseAdminUntyped().from("notifications").insert({
+      type: "prediction_resolved",
+      title: `Resolved: ${prediction.title}`,
+      message: `Winning option: ${resolvedOption}`,
+      prediction_id: predictionId,
+      prediction_title: prediction.title,
+    });
+
     return NextResponse.json({ success: true });
   } catch (err: any) {
     return NextResponse.json({ error: err.message || "Failed to resolve" }, { status: 500 });

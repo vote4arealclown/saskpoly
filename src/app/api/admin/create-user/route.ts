@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSupabaseAdmin } from "@/lib/supabase-admin";
+import { getSupabaseAdmin, getSupabaseAdminUntyped } from "@/lib/supabase-admin";
 
 export async function POST(req: NextRequest) {
   try {
@@ -22,6 +22,15 @@ export async function POST(req: NextRequest) {
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
+
+    // Create notification
+    await getSupabaseAdminUntyped().from("notifications").insert({
+      type: "user_joined",
+      title: `${displayName || email} was added by admin`,
+      message: "A new friend was directly invited",
+      user_id: user.user?.id,
+      user_name: displayName || email,
+    });
 
     return NextResponse.json({ success: true, user: user.user });
   } catch (err: any) {

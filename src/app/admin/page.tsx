@@ -19,6 +19,9 @@ import {
   Users,
   MessageSquare,
   Search,
+  Bell,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 
 export default function AdminPage() {
@@ -75,6 +78,11 @@ export default function AdminPage() {
   const [deletingPred, setDeletingPred] = useState<string | null>(null);
   const [deletingComment, setDeletingComment] = useState<string | null>(null);
 
+  // Notifications
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [notifFilter, setNotifFilter] = useState<string>("all");
+  const [markingRead, setMarkingRead] = useState<string | null>(null);
+
   useEffect(() => {
     const checkAdmin = async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -97,6 +105,7 @@ export default function AdminPage() {
       loadInvites();
       loadUsers();
       loadComments();
+      loadNotifications();
     };
     checkAdmin();
   }, [router]);
@@ -132,6 +141,33 @@ export default function AdminPage() {
       .order("created_at", { ascending: false })
       .limit(200);
     setComments(data || []);
+  };
+
+  const loadNotifications = async () => {
+    const { data } = await supabase
+      .from("notifications")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(200);
+    setNotifications(data || []);
+  };
+
+  const markNotificationRead = async (id: string, read: boolean) => {
+    setMarkingRead(id);
+    await supabase.from("notifications").update({ read }).eq("id", id);
+    setMarkingRead(null);
+    loadNotifications();
+  };
+
+  const markAllRead = async () => {
+    await supabase.from("notifications").update({ read: true }).eq("read", false);
+    loadNotifications();
+  };
+
+  const clearAllNotifications = async () => {
+    if (!confirm("Delete all notifications? This cannot be undone.")) return;
+    await supabase.from("notifications").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+    loadNotifications();
   };
 
   const handleCreateUser = async (e: React.FormEvent) => {
@@ -618,7 +654,9 @@ export default function AdminPage() {
             {predictions
               .filter((p) => p.status !== "resolved" && p.status !== "cancelled")
               .map((p) => (
-                <option key={p.id} value={p.id}>{p.title}</option>
+                <option key={p.id} value={p.id}>
+                  {p.title} — {new Date(p.event_date).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })} @ {new Date(p.event_date).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })} ({p.category})
+                </option>
               ))}
           </select>
           {resolveId && (
@@ -739,7 +777,7 @@ export default function AdminPage() {
                       </span>
                     </div>
                     <div className="text-xs text-zinc-500 mt-0.5">
-                      {p.category} · {p.points} pts · {new Date(p.event_date).toLocaleDateString()}
+                      {p.category} · {p.points} pts · {new Date(p.event_date).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })} @ {new Date(p.event_date).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}
                     </div>
                   </div>
                   <button
@@ -807,6 +845,100 @@ export default function AdminPage() {
               <p className="text-sm text-zinc-600 text-center py-4">No comments found.</p>
             )}
           </div>
+        </div>
+      </section>
+
+      {/* Notification Center */}
+      <section id="notifications" className="rounded-2xl border border-zinc-800 bg-zinc-950 p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold flex items-center gap-2">
+            <Bell className="w-5 h-5 text-amber-400" />
+            Notification Center
+            {notifications.filter((n) => !n.read).length > 0 && (
+              <span className="text-xs bg-red-500 text-white px-2 py-0.5 rounded-full">
+                {notifications.filter((n) => !n.read).length} unread
+              </span>
+            )}
+          </h2>
+          <div className="flex items-center gap-2">
+            <select
+              value={notifFilter}
+              onChange={(e) => setNotifFilter(e.target.value)}
+              className="rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-sm text-white focus:border-emerald-500 focus:outline-none"
+            >
+              <option value="all">All Types</option>
+              <option value="pick">Picks</option>
+              <option value="comment">Comments</option>
+              <option value="user_joined">Joins</option>
+              <option value="prediction_resolved">Resolutions</option>
+              <option value="auto_resolve">Auto-Resolve</option>
+            </select>
+            {notifications.some((n) => !n.read) && (
+              <button
+                onClick={markAllRead}
+                className="text-xs bg-emerald-500/10 text-emerald-400 px-3 py-1.5 rounded-lg hover:bg-emerald-500/20 transition"
+              >
+                Mark all read
+              </button>
+            )}
+            {notifications.length > 0 && (
+              <button
+                onClick={clearAllNotifications}
+                className="text-xs bg-red-500/10 text-red-400 px-3 py-1.5 rounded-lg hover:bg-red-500/20 transition"
+              >
+                Clear all
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div className="space-y-2 max-h-96 overflow-y-auto">
+          {notifications
+            .filter((n) => notifFilter === "all" || n.type === notifFilter)
+            .map((n) => (
+              <div
+                key={n.id}
+                className={`flex items-start justify-between rounded-xl border px-4 py-3 gap-3 ${
+                  n.read ? "border-zinc-800 bg-zinc-900 opacity-60" : "border-zinc-700 bg-zinc-800"
+                }`}
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 text-xs text-zinc-500">
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] uppercase font-bold ${
+                      n.type === "pick" ? "bg-blue-500/20 text-blue-400" :
+                      n.type === "comment" ? "bg-purple-500/20 text-purple-400" :
+                      n.type === "user_joined" ? "bg-emerald-500/20 text-emerald-400" :
+                      n.type === "prediction_resolved" ? "bg-amber-500/20 text-amber-400" :
+                      "bg-zinc-700 text-zinc-400"
+                    }`}>
+                      {n.type}
+                    </span>
+                    <span className="text-zinc-300 font-medium">{n.title}</span>
+                    <span>·</span>
+                    <span>{new Date(n.created_at).toLocaleString()}</span>
+                  </div>
+                  <p className="text-sm text-white mt-1">{n.message}</p>
+                  {(n.user_name || n.prediction_title) && (
+                    <p className="text-xs text-zinc-500 mt-0.5">
+                      {n.user_name && <span>User: {n.user_name}</span>}
+                      {n.user_name && n.prediction_title && <span> · </span>}
+                      {n.prediction_title && <span>Prediction: {n.prediction_title}</span>}
+                    </p>
+                  )}
+                </div>
+                <button
+                  onClick={() => markNotificationRead(n.id, !n.read)}
+                  disabled={markingRead === n.id}
+                  className="text-xs bg-zinc-700 text-zinc-400 px-2 py-1 rounded-lg hover:bg-zinc-600 transition shrink-0"
+                  title={n.read ? "Mark unread" : "Mark read"}
+                >
+                  {markingRead === n.id ? "..." : n.read ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                </button>
+              </div>
+            ))}
+          {notifications.length === 0 && (
+            <p className="text-sm text-zinc-600 text-center py-8">No notifications yet.</p>
+          )}
         </div>
       </section>
     </div>

@@ -4,9 +4,11 @@ import {
   getHeadToHead,
   getLastNGames,
   getPitcherMetrics,
-  getBullpenStats,
+  getTrueBullpenStats,
   getVenueLocation,
   getWeatherForecast,
+  getParkFactor,
+  teamName,
 } from "./mlb-api";
 import { JAYS_CONFIG } from "./jays-config";
 
@@ -40,6 +42,7 @@ export async function computeMoneyline(teamId: number = JAYS_CONFIG.team.id) {
   const opponent = game.teams[oppSide].team;
   const focusId = focusTeam.id;
   const oppId = opponent.id;
+  const venueId = game.venue?.id || 0;
 
   let focusProb = 0.5;
   const details: Record<string, number> = {};
@@ -88,14 +91,14 @@ export async function computeMoneyline(teamId: number = JAYS_CONFIG.team.id) {
   details.pitching = pitchAdj;
   focusProb += pitchAdj;
 
-  // 4. Bullpen
-  const focusBull = await getBullpenStats(focusId);
-  const oppBull = await getBullpenStats(oppId);
+  // 4. True Bullpen (weighted reliever stats)
+  const focusBull = await getTrueBullpenStats(focusId);
+  const oppBull = await getTrueBullpenStats(oppId);
   let bullAdj = 0;
   if (focusBull && oppBull) {
     bullAdj =
-      (oppBull.era - focusBull.era) * JAYS_CONFIG.model.bullpen.era_weight +
-      (oppBull.whip - focusBull.whip) * JAYS_CONFIG.model.bullpen.whip_weight;
+      ((oppBull.era || 4.0) - (focusBull.era || 4.0)) * JAYS_CONFIG.model.bullpen.era_weight +
+      ((oppBull.whip || 1.35) - (focusBull.whip || 1.35)) * JAYS_CONFIG.model.bullpen.whip_weight;
     bullAdj = clamp(
       bullAdj,
       -JAYS_CONFIG.model.bullpen.max_adjustment,
@@ -122,11 +125,9 @@ export async function computeMoneyline(teamId: number = JAYS_CONFIG.team.id) {
   details.momentum = momAdj;
   focusProb += momAdj;
 
-  // 6. Park Factor
-  const venueLoc = await getVenueLocation(game);
+  // 6. Park Factor (uses real 3-year rolling data)
+  const pf = getParkFactor(venueId);
   let parkAdj = 0;
-  // Simplified: use 1.0 as neutral park factor
-  const pf = 1.0;
   if (pf > JAYS_CONFIG.model.park_factor.high_threshold) {
     parkAdj = focusSide === "home" ? JAYS_CONFIG.model.park_factor.max_adjustment : -JAYS_CONFIG.model.park_factor.max_adjustment;
   } else if (pf < JAYS_CONFIG.model.park_factor.low_threshold) {
@@ -135,26 +136,23 @@ export async function computeMoneyline(teamId: number = JAYS_CONFIG.team.id) {
   details.park = parkAdj;
   focusProb += parkAdj;
 
-  // 7. Weather
-  let weather: any = { temp: 70, wind_speed: 0, wind_dir: "" };
-  if (venueLoc?.lat && venueLoc?.lon) {
-    weather = await getWeatherForecast(venueLoc.lat, venueLoc.lon);
-  }
+  // 7. Weather (Open-Meteo with wind direction, humidity)
+  const forecast = await getWeatherForecast(venueId);
   let weatherAdj = 0;
   const wmax = JAYS_CONFIG.model.weather.max_adjustment;
-  const windDir = String(weather.wind_dir || "").toLowerCase();
+  const windDir = String(forecast.windDir || "").toLowerCase();
   if (
-    weather.wind_speed > JAYS_CONFIG.model.weather.wind_speed_threshold &&
+    forecast.windSpeed > JAYS_CONFIG.model.weather.wind_speed_threshold &&
     (windDir.includes("out") || windDir.includes("w") || windDir.includes("sw") || windDir.includes("s"))
   ) {
     weatherAdj += focusSide === "home" ? wmax : -wmax;
   } else if (
-    weather.wind_speed > JAYS_CONFIG.model.weather.wind_speed_threshold &&
+    forecast.windSpeed > JAYS_CONFIG.model.weather.wind_speed_threshold &&
     (windDir.includes("in") || windDir.includes("e") || windDir.includes("ne") || windDir.includes("n"))
   ) {
     weatherAdj -= focusSide === "home" ? wmax : -wmax;
   }
-  if (weather.temp < JAYS_CONFIG.model.weather.cold_temp_threshold) {
+  if (forecast.temp !== null && forecast.temp < JAYS_CONFIG.model.weather.cold_temp_threshold) {
     weatherAdj += focusSide === "home" ? JAYS_CONFIG.model.park_factor.max_adjustment : -JAYS_CONFIG.model.park_factor.max_adjustment;
   }
   weatherAdj = clamp(weatherAdj, -wmax, wmax);
@@ -205,11 +203,13 @@ export async function computeMoneyline(teamId: number = JAYS_CONFIG.team.id) {
 
   return {
     game: {
+      game_pk: game.gamePk,
       date: game.officialDate || "",
       focus_side: focusSide,
       focus_team: focusTeam.name,
       opponent: opponent.name,
       venue: game.venue?.name || "",
+      venue_id: venueId,
     },
     focus_prob: Math.round(focusProb * 1000) / 1000,
     opp_prob: Math.round(oppProb * 1000) / 1000,
@@ -219,14 +219,20 @@ export async function computeMoneyline(teamId: number = JAYS_CONFIG.team.id) {
     contrarian: "NONE",
     recommendation: rec,
     pitchers: { focus: focusPitch, opp: oppPitch },
-    bullpens: { focus: focusBull, opp: oppBull },
+    bullpens: {
+      focus: focusBull ? { ...focusBull, total_ip: (focusBull as any).totalIp, totalIp: undefined } : null,
+      opp: oppBull ? { ...oppBull, total_ip: (oppBull as any).totalIp, totalIp: undefined } : null,
+    },
     weather: {
-      temp: weather.temp,
-      wind_speed: weather.wind_speed,
-      wind_dir: weather.wind_dir,
+      temp: forecast.temp,
+      humidity: forecast.humidity,
+      wind_speed: forecast.windSpeed,
+      wind_dir: forecast.windDir,
+      condition: forecast.condition,
     },
     records: { focus: focusRec, opp: oppRec },
     h2h,
     momentum: `${focusWins}-${momGames - focusWins}`,
+    park_factor: pf,
   };
 }

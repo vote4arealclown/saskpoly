@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase";
 import Link from "next/link";
-import { Trophy, Calendar, MessageSquare, Filter, Loader2 } from "lucide-react";
+import { Trophy, Calendar, Clock, MessageSquare, Filter, Loader2 } from "lucide-react";
 
 export default function PredictionsPage() {
   const supabase = createClient();
@@ -11,6 +11,7 @@ export default function PredictionsPage() {
   const [loading, setLoading] = useState(true);
   const [category, setCategory] = useState<string>("all");
   const [status, setStatus] = useState<string>("all");
+  const [sport, setSport] = useState<string>("all");
 
   useEffect(() => {
     loadPredictions();
@@ -33,6 +34,12 @@ export default function PredictionsPage() {
   const filtered = predictions.filter((p) => {
     if (category !== "all" && p.category !== category) return false;
     if (status !== "all" && p.status !== status) return false;
+    if (sport !== "all") {
+      if (sport === "baseball" && p.event_type !== "mlb") return false;
+      if (sport === "hockey" && p.event_type !== "nhl") return false;
+      if (sport === "basketball" && p.event_type !== "nba") return false;
+      if (sport === "football" && p.event_type !== "nfl") return false;
+    }
     return true;
   });
 
@@ -52,7 +59,7 @@ export default function PredictionsPage() {
           <Trophy className="w-6 h-6 text-emerald-400" />
           Predictions
         </h1>
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-3">
           <select
             value={category}
             onChange={(e) => setCategory(e.target.value)}
@@ -61,6 +68,17 @@ export default function PredictionsPage() {
             <option value="all">All Categories</option>
             <option value="sports">Sports</option>
             <option value="stocks">Stocks</option>
+          </select>
+          <select
+            value={sport}
+            onChange={(e) => setSport(e.target.value)}
+            className="rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white focus:border-emerald-500 focus:outline-none"
+          >
+            <option value="all">All Sports</option>
+            <option value="baseball">Baseball (MLB)</option>
+            <option value="hockey">Hockey (NHL)</option>
+            <option value="basketball">Basketball (NBA)</option>
+            <option value="football">Football (NFL)</option>
           </select>
           <select
             value={status}
@@ -108,7 +126,11 @@ export default function PredictionsPage() {
                   <div className="flex items-center gap-4 mt-3 text-xs text-zinc-500">
                     <span className="flex items-center gap-1">
                       <Calendar className="w-3 h-3" />
-                      {new Date(p.event_date).toLocaleDateString()}
+                      {new Date(p.event_date).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Clock className="w-3 h-3" />
+                      {new Date(p.event_date).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}
                     </span>
                     <span className="flex items-center gap-1">
                       <MessageSquare className="w-3 h-3" />

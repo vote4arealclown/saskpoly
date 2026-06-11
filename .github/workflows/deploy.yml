@@ -37,5 +37,5 @@ jobs:
           npm install -g vercel
           vercel deploy --prod --token=${{ secrets.VERCEL_TOKEN }} --yes
         env:
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          VERCEL_ORG_ID: team_JrD6h9XEh4kwvfPziz1PjE38
+          VERCEL_PROJECT_ID: prj_foDffP3tvUH6kZXglCJEYPgjA1S0

@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase-server";
 
 export async function POST(req: NextRequest) {
   try {
-    const { userId, email } = await req.json();
+    const { userId } = await req.json();
     const supabase = await createClient();
 
     // Get user's picks from last week
@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
       points: totalPoints,
       leaders: leaders || [],
     });
-  } catch (error) {
+  } catch (_error) {
     return NextResponse.json({ error: "Failed to generate digest" }, { status: 500 });
   }
 }

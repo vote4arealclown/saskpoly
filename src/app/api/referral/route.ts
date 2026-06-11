@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
       .eq("id", userId);
 
     return NextResponse.json({ success: true, bonus: 50 });
-  } catch (error) {
+  } catch (_error) {
     return NextResponse.json({ error: "Referral failed" }, { status: 500 });
   }
 }
